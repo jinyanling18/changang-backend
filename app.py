@@ -47,13 +47,23 @@ async def report(body: ReportBody, req: Request):
 async def ping():
     return "pong"
 
+@app.post("/reset")
+async def reset(req: Request):
+    auth = req.headers.get("Authorization", "")
+    if auth != f"Bearer {AUTH_TOKEN}":
+        raise HTTPException(401, "Unauthorized")
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("DELETE FROM records")
+    conn.commit()
+    conn.close()
+    return {"status": "reset ok"}
+
 @app.get("/activity/summary")
 async def summary():
     conn = sqlite3.connect(str(DB_PATH))
     cur = conn.cursor()
-    cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY id DESC LIMIT 5")
-    recent = cur.fetchall()
-    cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY id ASC")
+    cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY timestamp ASC")
+    recent = cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY timestamp DESC").fetchall()
     rows = cur.fetchall()
     conn.close()
     sessions, opens = {}, {}
@@ -73,4 +83,3 @@ async def summary():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
