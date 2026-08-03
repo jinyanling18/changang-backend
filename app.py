@@ -1,9 +1,10 @@
 import sqlite3, os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import uvicorn
 
 BASE_DIR = Path(__file__).parent
@@ -15,8 +16,13 @@ def init_db():
     conn.execute("""CREATE TABLE IF NOT EXISTS records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         app_name TEXT NOT NULL,
-        event TEXT NOT NULL,
-        timestamp TEXT NOT NULL)""")
+        timestamp TEXT NOT NULL,
+        battery TEXT,
+        location TEXT,
+        device TEXT,
+        weather TEXT,
+        brightness TEXT,
+        volume TEXT)""")
     conn.commit()
     conn.close()
 
@@ -28,7 +34,13 @@ app.add_middleware(CORSMiddleware,
 
 class ReportBody(BaseModel):
     app_name: str
-    event: str
+    event: Optional[str] = None
+    battery: Optional[str] = None
+    location: Optional[str] = None
+    device: Optional[str] = None
+    weather: Optional[str] = None
+    brightness: Optional[str] = None
+    volume: Optional[str] = None
 
 @app.post("/report")
 async def report(body: ReportBody, req: Request):
@@ -37,8 +49,10 @@ async def report(body: ReportBody, req: Request):
         raise HTTPException(401, "Unauthorized")
     now = datetime.utcnow().isoformat()
     conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("INSERT INTO records VALUES (NULL, ?, ?, ?)",
-        (body.app_name, body.event, now))
+    conn.execute(
+        "INSERT INTO records VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (body.app_name, now, body.battery, body.location,
+         body.device, body.weather, body.brightness, body.volume))
     conn.commit()
     conn.close()
     return {"status": "ok"}
@@ -62,24 +76,25 @@ async def reset(req: Request):
 async def summary():
     conn = sqlite3.connect(str(DB_PATH))
     cur = conn.cursor()
-    cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY timestamp ASC")
-    recent = cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY timestamp DESC").fetchall()
-    rows = cur.fetchall()
+    rows = cur.execute(
+        "SELECT app_name, timestamp, battery, location, device, weather, brightness, volume FROM records ORDER BY timestamp DESC LIMIT 20"
+    ).fetchall()
     conn.close()
-    sessions, opens = {}, {}
+    result = []
     for r in rows:
-        app_name, ev, ts = r
-        if ev == "open":
-            opens[app_name] = datetime.fromisoformat(ts)
-        elif ev == "close" and app_name in opens:
-            gap = int((datetime.fromisoformat(ts) - opens[app_name]).total_seconds())
-            sessions[app_name] = sessions.get(app_name, 0) + gap
-            del opens[app_name]
-    return {
-        "recent_apps": [r[0] for r in recent],
-        "sessions": sessions
-    }
+        result.append({
+            "app_name": r[0],
+            "timestamp": r[1],
+            "battery": r[2],
+            "location": r[3],
+            "device": r[4],
+            "weather": r[5],
+            "brightness": r[6],
+            "volume": r[7]
+        })
+    return {"records": result}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
