@@ -22,7 +22,12 @@ def init_db():
         device TEXT,
         weather TEXT,
         brightness TEXT,
-        volume TEXT)""")
+        volume TEXT,
+        steps TEXT)""")
+    try:
+        conn.execute("ALTER TABLE records ADD COLUMN steps TEXT")
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -41,6 +46,7 @@ class ReportBody(BaseModel):
     weather: Optional[str] = None
     brightness: Optional[str] = None
     volume: Optional[str] = None
+    steps: Optional[str] = None
 
 @app.post("/report")
 async def report(body: ReportBody, req: Request):
@@ -50,9 +56,9 @@ async def report(body: ReportBody, req: Request):
     now = datetime.utcnow().isoformat()
     conn = sqlite3.connect(str(DB_PATH))
     conn.execute(
-        "INSERT INTO records VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO records VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (body.app_name, now, body.battery, body.location,
-         body.device, body.weather, body.brightness, body.volume))
+         body.device, body.weather, body.brightness, body.volume, body.steps))
     conn.commit()
     conn.close()
     return {"status": "ok"}
@@ -77,7 +83,7 @@ async def summary():
     conn = sqlite3.connect(str(DB_PATH))
     cur = conn.cursor()
     rows = cur.execute(
-        "SELECT app_name, timestamp, battery, location, device, weather, brightness, volume FROM records ORDER BY timestamp DESC LIMIT 20"
+        "SELECT app_name, timestamp, battery, location, device, weather, brightness, volume, steps FROM records ORDER BY timestamp DESC LIMIT 20"
     ).fetchall()
     conn.close()
     result = []
@@ -90,7 +96,8 @@ async def summary():
             "device": r[4],
             "weather": r[5],
             "brightness": r[6],
-            "volume": r[7]
+            "volume": r[7],
+            "steps": r[8]
         })
     return {"records": result}
 
