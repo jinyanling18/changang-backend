@@ -100,6 +100,29 @@ async def summary():
             "steps": r[8]
         })
     return {"records": result}
+import smtplib
+from email.mime.text import MIMEText
+
+class EmailBody(BaseModel):
+    subject: str
+    body: Optional[str] = ""
+
+@app.post("/send_email")
+async def send_email(data: EmailBody, req: Request):
+    auth = req.headers.get("Authorization", "")
+    if auth != f"Bearer {AUTH_TOKEN}":
+        raise HTTPException(401, "Unauthorized")
+    try:
+        msg = MIMEText(data.body, "plain", "utf-8")
+        msg["Subject"] = data.subject
+        msg["From"] = "19217257889@163.com"
+        msg["To"] = "19217257889@163.com"
+        with smtplib.SMTP_SSL("smtp.163.com", 465) as server:
+            server.login("19217257889@163.com", "JWxFHcmMFHhctPWS")
+            server.sendmail("19217257889@163.com", ["19217257889@163.com"], msg.as_string())
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
