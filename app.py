@@ -1,10 +1,11 @@
-import sqlite3, os
+import sqlite3, os, smtplib
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from email.mime.text import MIMEText
 import uvicorn
 
 BASE_DIR = Path(__file__).parent
@@ -47,6 +48,10 @@ class ReportBody(BaseModel):
     brightness: Optional[str] = None
     volume: Optional[str] = None
     steps: Optional[str] = None
+
+class EmailBody(BaseModel):
+    subject: str
+    body: Optional[str] = ""
 
 @app.post("/report")
 async def report(body: ReportBody, req: Request):
@@ -100,12 +105,6 @@ async def summary():
             "steps": r[8]
         })
     return {"records": result}
-import smtplib
-from email.mime.text import MIMEText
-
-class EmailBody(BaseModel):
-    subject: str
-    body: Optional[str] = ""
 
 @app.post("/send_email")
 async def send_email(data: EmailBody, req: Request):
@@ -117,8 +116,9 @@ async def send_email(data: EmailBody, req: Request):
         msg["Subject"] = data.subject
         msg["From"] = "19217257889@163.com"
         msg["To"] = "19217257889@163.com"
+        email_password = os.environ.get("EMAIL_PASSWORD", "")
         with smtplib.SMTP_SSL("smtp.163.com", 465) as server:
-            server.login("19217257889@163.com", "JWxFHcmMFHhctPWS")
+            server.login("19217257889@163.com", email_password)
             server.sendmail("19217257889@163.com", ["19217257889@163.com"], msg.as_string())
         return {"status": "ok"}
     except Exception as e:
