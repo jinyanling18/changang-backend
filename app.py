@@ -114,12 +114,13 @@ async def send_email(data: EmailBody, req: Request):
     try:
         msg = MIMEText(data.body, "plain", "utf-8")
         msg["Subject"] = data.subject
-        msg["From"] = "19217257889@163.com"
+        msg["From"] = "jinyanling182@outlook.com"
         msg["To"] = "19217257889@163.com"
         email_password = os.environ.get("EMAIL_PASSWORD", "")
-        with smtplib.SMTP_SSL("smtp.163.com", 465) as server:
-            server.login("19217257889@163.com", email_password)
-            server.sendmail("19217257889@163.com", ["19217257889@163.com"], msg.as_string())
+        with smtplib.SMTP("smtp.office365.com", 587) as server:
+            server.starttls()
+            server.login("jinyanling182@outlook.com", email_password)
+            server.sendmail("jinyanling182@outlook.com", ["19217257889@163.com"], msg.as_string())
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(500, str(e))
